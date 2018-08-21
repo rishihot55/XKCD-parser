@@ -3,6 +3,7 @@ import requests
 import re
 import os
 import sys
+from requests.exceptions import HTTPError
 
 VERBOSE = None
 verbose_print = None
@@ -17,9 +18,15 @@ class UrlNotFoundError(Exception):
     pass
 
 
+def safemkdir(directory):
+    if not os.path.exists(directory):
+        verbose_print("Creating directory:", directory)
+        os.makedirs(directory)
+
 def get_comic_url(id):
     url = 'https://xkcd.com/{}'.format(id)
     response = requests.get(url)
+    response.raise_for_status() # Raise any failures, if any
     html = response.text
     match = image_url_pattern.search(html)
     if not match:
@@ -34,28 +41,30 @@ def download_comic(comic_url):
     return comic_image
 
 
-def download_single_comic(comic_id, output_directory, output_file):
+def write_contents_to_path(data, path):
+    try:
+        with open(path, 'wb') as file:
+            file.write(data)
+    except IOError as e:
+        error("Could not save comic to file")
+
+def download_single_comic(comic_id, output_directory, output_file_name):
     verbose_print("Downloading comic:", comic_id)
     try:
         url = get_comic_url(comic_id)
-        image = download_comic(url)
-        if not output_file:
-            extension = url.split('.')[-1]
-            output_file_name = "{}.{}".format(comic_id, extension)
-            output_file = open(output_file_name, 'wb')
-        verbose_print("Saving comic to", output_file.name)
-        output_file.write(image.content)
-        output_file.close()
+        img_data = download_comic(url)
+        extension = url.split('.')[-1]
+        if not output_file_name:
+            output_file_name = comic_id
+        output_file = "{}.{}".format(output_file_name, extension)
+        safemkdir(output_directory)
+        output_path = os.path.join(output_directory, output_file)
+        verbose_print("Saving comic to", output_path)
+        write_contents_to_path(img_data.content, output_path)
+    except HTTPError as e:
+        error("The comic failed to download because of the following reason: [", e, "]")
     except UrlNotFoundError:
         error("The specified comic could not be found")
-        if output_file:
-            output_file.close()
-            os.remove(output_file.name)
-    except IOError as e:
-        error("Could not save comic to file")
-        if output_file:
-            output_file.close()
-            os.remove(output_file.name)
 
 
 if __name__ == "__main__":
@@ -66,11 +75,8 @@ if __name__ == "__main__":
                         type=int)
     parser.add_argument('--all', action='store_true',
                         help='Downloads every single XKCD comic')
-    parser.add_argument('--range',
-                        help='Downloads comics from the specified range')
     parser.add_argument('--out',
-                        help='Output file name, if you are downloading a single comic',
-                        type=argparse.FileType('wb'))
+                        help='Output file name, if you are downloading a single comic')
     parser.add_argument('-v', action='store_true', help='Verbose mode')
     parser.add_argument('--dir',
                         help='The directory to which the comic should be downloaded to',
