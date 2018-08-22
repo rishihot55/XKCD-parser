@@ -3,10 +3,11 @@ import os
 import re
 import sys
 
+import xml.etree.ElementTree as ET
+
 import requests
 from requests.exceptions import HTTPError
 
-import xml.etree.ElementTree as ET
 
 VERBOSE = None
 verbose_print = None
@@ -118,7 +119,13 @@ def download_from_rss_feed(output_directory):
         error("The specified comic could not be found")
 
 
-if __name__ == "__main__":
+def yes_no_prompt(text):
+    yes_values = ["Y", "y", ""]
+    input_text = input(text + " [Y/n]")
+    return input_text in yes_values
+
+
+def build_argparser():
     parser = argparse.ArgumentParser(
         description='Download yourself some XKCD comics')
     parser.add_argument('--number',
@@ -132,14 +139,21 @@ if __name__ == "__main__":
     parser.add_argument('--dir',
                         help='The directory to which the comic should be downloaded to',
                         default='comics/')
+    return parser
 
+
+if __name__ == "__main__":
+    parser = build_argparser()
     args = parser.parse_args()
     VERBOSE = args.v
     verbose_print = print if VERBOSE else lambda *a, **k: None
     if args.number:
-        assert args.number > 0, "The comic id cannot be below 0"
-        download_single_comic(args.number, args.dir, args.out)
+        if args.number > 0:
+            download_single_comic(args.number, args.dir, args.out)
+        else:
+            error("The comic number must be at least 1")
     if not args.number and not args.all:
-        download_from_rss_feed(args.dir)
+        if yes_no_prompt("Do you want to download the latest handful of comics from the RSS feed?"):
+            download_from_rss_feed(args.dir)
     else:
         parser.print_help()
