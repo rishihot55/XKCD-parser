@@ -7,7 +7,8 @@ import xml.etree.ElementTree as ET
 
 import requests
 from requests.exceptions import HTTPError
-
+from concurrent.futures import ThreadPoolExecutor
+from itertools import repeat
 
 VERBOSE = None
 verbose_print = None
@@ -149,8 +150,12 @@ def download_all_comics(output_directory):
         if max_comic_id < comic_id:
             max_comic_id = comic_id
 
-    for i in range(1, max_comic_id + 1):
-        download_single_comic(i, output_directory, i)
+    comic_id_list = list(range(1, max_comic_id + 1))
+
+    # Kept a default of 10. We don't want to leech off XKCD.com
+    executor = ThreadPoolExecutor(max_workers=10)
+    executor.map(download_single_comic, comic_id_list, repeat(output_directory), comic_id_list)
+
 
 if __name__ == "__main__":
     parser = build_argparser()
