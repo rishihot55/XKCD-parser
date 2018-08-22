@@ -142,6 +142,16 @@ def build_argparser():
     return parser
 
 
+def download_all_comics(output_directory):
+    max_comic_id = 1
+    for (comic_id, _) in get_latest_comics_from_feed():
+        comic_id = int(comic_id)
+        if max_comic_id < comic_id:
+            max_comic_id = comic_id
+
+    for i in range(1, max_comic_id + 1):
+        download_single_comic(i, output_directory, i)
+
 if __name__ == "__main__":
     parser = build_argparser()
     args = parser.parse_args()
@@ -152,8 +162,10 @@ if __name__ == "__main__":
             download_single_comic(args.number, args.dir, args.out)
         else:
             error("The comic number must be at least 1")
-    if not args.number and not args.all:
+    elif args.all:
+        download_all_comics(args.dir)
+    else:
         if yes_no_prompt("Do you want to download the latest handful of comics from the RSS feed?"):
             download_from_rss_feed(args.dir)
-    else:
-        parser.print_help()
+        else:
+            parser.print_help()
