@@ -8,7 +8,6 @@ download of single and multiple comics with a lil' bit of flexibility.
 import argparse
 import os
 import re
-import sys
 
 import xml.etree.ElementTree as ET
 
@@ -16,6 +15,8 @@ import requests
 from requests.exceptions import HTTPError
 from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat
+from util import error, prefix, safemkdir, write_contents_to_path, yes_no_prompt
+
 
 VERBOSE = None
 verbose_print = None
@@ -26,25 +27,8 @@ comic_url_regex = "https://xkcd.com/(\d+)"
 comic_url_pattern = re.compile(comic_url_regex)
 
 
-def prefix(prefix_str, iterable):
-    """Apply a string prefix to the iterable."""
-    return map(lambda p, x: p + str(x), repeat(prefix_str), iterable)
-
-
-def error(*args, **kwargs):
-    """Print to STDERR."""
-    print(*args, file=sys.stderr, **kwargs)
-
-
 class UrlNotFoundError(Exception):
     """Exception raised when the image URL couldn't be extracted."""
-
-
-def safemkdir(directory):
-    """Create a directory if one does not exist already."""
-    if not os.path.exists(directory):
-        verbose_print("Creating directory:", directory)
-        os.makedirs(directory)
 
 
 def get_comic_image_url(id):
@@ -77,12 +61,6 @@ def download_comic(comic_url):
     return comic_image
 
 
-def write_contents_to_path(data, path):
-    """Write data to a file in the path."""
-    with open(path, 'wb') as file:
-        file.write(data)
-
-
 def download_single_comic(comic_id, output_directory, output_file_name):
     """Download a single comic by ID and write to a file."""
     print("Downloading comic:", comic_id)
@@ -103,6 +81,7 @@ def download_comic_to_file(url, output_directory, output_file_name):
         img_data = download_comic(url)
         extension = url.split('.')[-1]
         output_file = "{}.{}".format(output_file_name, extension)
+        verbose_print("Creating directory:", output_directory)
         safemkdir(output_directory)
         verbose_print("Saving comic to", output_file)
         output_path = os.path.join(output_directory, output_file)
@@ -132,22 +111,17 @@ def get_latest_comics_from_feed():
     return [get_comic_and_url(item) for item in root.iter('item')]
 
 
-def download_from_rss_feed(output_directory, file_prefix=""):
+def download_from_rss_feed(output_directory, file_prefix):
     """Download comics from the RSS feed."""
     try:
+        if file_prefix is None:
+            file_prefix = ""
         for (comic_id, url) in get_latest_comics_from_feed():
             download_comic_to_file(url, output_directory, file_prefix + comic_id)
     except HTTPError as e:
         error("The comic failed to download because of the following reason: [", e, "]")
     except UrlNotFoundError:
         error("The specified comic could not be found")
-
-
-def yes_no_prompt(text):
-    """Create a yes no prompt which takes yes by default."""
-    yes_values = ["Y", "y", ""]
-    input_text = input(text + " [Y/n]")
-    return input_text in yes_values
 
 
 def build_argparser():
