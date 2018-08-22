@@ -1,4 +1,11 @@
-"""A set of basic util functions used in the script."""
+"""
+A set of basic util functions.
+
+They're pretty simple recipes which can be stored as snippets.
+
+Available at:
+https://gist.github.com/rrajasek95/3c43fafdd85d02e55dc2d5fad8798ac2
+"""
 from itertools import repeat
 import sys
 import os
